@@ -1,0 +1,47 @@
+import os
+# 导入科学计算库numpy
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras import layers
+from tensorflow.keras.models import *
+from tensorflow.keras.layers import *
+from tensorflow.keras.applications import *
+from tensorflow.keras.preprocessing.image import *
+import h5py
+import numpy as np
+from sklearn.utils import shuffle
+from tensorflow.keras.optimizers import Adam
+import os
+from sklearn.model_selection import train_test_split
+
+train_dir = 'train'
+validation_dir = 'test'
+conv_base = ResNet50(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+model = Sequential()
+model.add(conv_base)
+#model.add(layers.Flatten())
+model.add(layers.GlobalAveragePooling2D())
+model.add(layers.Dense(1, activation='sigmoid'))
+conv_base.trainable = False
+model.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.001), metrics=['acc'])
+batch_size = 64
+train_datagen = ImageDataGenerator()
+validation_datagen = ImageDataGenerator()
+train_generator = train_datagen.flow_from_directory(        
+        train_dir,       
+        target_size=(224, 224),
+        batch_size=batch_size,        
+        class_mode='binary')
+validation_generator = validation_datagen.flow_from_directory(
+        validation_dir,
+        target_size=(224, 224),
+        batch_size=batch_size,
+        class_mode='binary')
+model.fit_generator(
+      train_generator,
+      steps_per_epoch=train_generator.samples//batch_size,
+      epochs=6,
+      validation_data=validation_generator,
+      validation_steps=validation_generator.samples//batch_size)
+model.save('Resnet50.h5')
