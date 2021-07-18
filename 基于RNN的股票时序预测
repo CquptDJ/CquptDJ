@@ -1,0 +1,80 @@
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+import numpy as np
+import itertools
+from tensorflow import keras
+from tensorflow.keras import layers
+import pandas as pd
+import matplotlib.pyplot as plt
+from datetime import datetime
+from sklearn.preprocessing import MinMaxScaler
+import statsmodels.api as sm
+import matplotlib.dates as dates
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+import math
+from keras.models import Sequential
+from keras.layers import Dense, Activation, Dropout, LSTM
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error
+from keras import optimizers
+import time
+#数据读取和预处理
+train=pd.read_csv('股票数据.csv',usecols=[0, 5],parse_dates=[0],index_col=0)
+train = train.values
+scaler = MinMaxScaler(feature_range=(0, 1))
+train = scaler.fit_transform(train.reshape(-1, 1))
+#划分训练集和测试集
+train_size = int(len(train)*0.8)
+test_size = len(train)-train_size
+test=train[train_size: len(train)]
+train=train[0: train_size]
+#数据集构建
+def dataset_to_array(dataset, time_back):
+    dataX=[]
+    dataY=[]
+    for i in range(len(dataset)-time_back-1):
+        a = dataset[i: (i+time_back)]
+        dataX.append(a)
+        dataY.append(dataset[i+time_back])
+    return np.array(dataX), np.array(dataY)
+time_back = 1
+trainX, trainY = dataset_to_array(train, time_back)
+testX, testY = dataset_to_array(test, time_back)
+#RNN模型构建
+np.random.seed(2017)
+model=tf.keras.models.Sequential([
+    tf.keras.layers.SimpleRNN(input_dim=1, units=50, return_sequences=True),
+    tf.keras.layers.SimpleRNN(units=128),
+    tf.keras.layers.Dense(units=64,activation='sigmoid'),
+    tf.keras.layers.Dense(units=1,activation='sigmoid')
+])
+model.compile(optimizer=keras.optimizers.Adam(0.01),loss=keras.losses.mean_squared_error)
+model_information=model.fit(trainX,trainY,epochs=100,verbose=1)
+information_loss=model_information.history['loss']  #模型训练损失
+#模型损失可视化
+def loss(information_loss):
+    plt.figure(figsize=(12, 8))
+    plt.plot(information_loss)
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.show()
+loss(information_loss)
+#对测试集进行预测
+testPredict = model.predict(testX)
+testPredict = scaler.inverse_transform(testPredict)
+testY = scaler.inverse_transform(testY)
+testScore = math.sqrt(mean_squared_error(testY, testPredict[:, 0]))
+print('测试集的RMSE分数 %.2f' %(testScore))
+#测试集进行可视化
+plt.figure(figsize=(15, 5))
+#plt.plot(range(len(testPredict)-1), testPredict[1:], label='prediction', lineWidth=1)
+plt.plot(range(len(testPredict)), testPredict, label='prediction', lineWidth=1)
+plt.plot(range(len(testY)), testY, label='true', lineWidth=1)
+plt.ylabel('volume')
+plt.xlabel('date')
+plt.legend()
+plt.title("prediction and true")
+plt.show()
