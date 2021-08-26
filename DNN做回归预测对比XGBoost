@@ -1,0 +1,70 @@
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+import numpy as np
+import itertools
+from tensorflow import keras
+from tensorflow.keras import layers
+import pandas as pd
+import matplotlib.pyplot as plt
+from datetime import datetime
+from sklearn.preprocessing import MinMaxScaler
+import statsmodels.api as sm
+import matplotlib.dates as dates
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+import math
+from keras.models import Sequential
+from keras.layers import Dense, Activation, Dropout, LSTM
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error
+from keras import optimizers
+import time
+import xgboost as xgb
+from sklearn.model_selection import KFold, StratifiedKFold
+
+data=pd.read_csv("Temps.csv")
+data_onehot = pd.get_dummies(data['week'])
+data = pd.concat([data,data_onehot],axis=1)
+data=data.drop(['week'],axis=1)
+train_x=data.drop(['actual'],axis=1)
+target=data['actual']
+
+#DNN
+model = Sequential()
+model.add(layers.Dense(64, activation='relu',
+                           input_shape=(train_x.shape[1],)))
+model.add(layers.Dense(128, activation='relu'))
+model.add(layers.Dense(64, activation='relu'))
+model.add(layers.Dense(1))
+model.compile(optimizer=keras.optimizers.Adam(0.01), loss='mse', metrics=['mse'])
+#xgb
+'''model=xgb.XGBRegressor(max_depth=2
+                      ,learning_rate=0.01
+                      ,n_estimators=20000,
+                          subsample=0.8)
+'''
+oof1 = np.zeros(len(train_x))
+answers = []
+score = 0
+n_fold = 5
+num_epochs = 100
+folds = KFold(n_splits=n_fold, shuffle=True,random_state=2000) #2020 #1000
+for fold_n, (train_index, valid_index) in enumerate(folds.split(train_x)):
+    X_train, X_valid = train_x.iloc[train_index], train_x.iloc[valid_index]
+    y_train, y_valid = target[train_index], target[valid_index]
+    
+    model.fit(X_train, y_train,epochs=num_epochs, batch_size=1, verbose=1)
+    #model.fit(X_train,y_train,eval_set=[(X_valid, y_valid)],verbose=100,early_stopping_rounds=200)
+
+    y_pre = model.predict(X_valid)
+    oof1[valid_index]=y_pre.reshape(y_pre.shape[0])
+print('RMSE-----------',
+      np.sqrt(mean_squared_error(data['actual'], oof1)))
+
+plt.figure(figsize=(50, 25))
+plt.plot(range(len(oof1)), oof1, label='prediction', lineWidth=5)
+plt.plot(range(len(target)), target, label='true', lineWidth=5)
+plt.legend()
+plt.title("prediction and true")
+plt.show()
