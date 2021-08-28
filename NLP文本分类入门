@@ -1,0 +1,44 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+#%matplotlib inline
+import sklearn
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import LabelEncoder
+import lightgbm as lgb
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import f1_score,accuracy_score
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+#读取训练数据集
+train = pd.read_csv('train.csv',sep='\t')
+train['text_split'] = train['text'].apply(lambda x: str(x.split()))
+#加载TF-IDF模型，这里我们直接采用TfidfVectorizer模型，就不用像前面那样按照两部来走，直接一步完成，一样的效果
+TFIDF = TfidfVectorizer(analyzer='word',
+            ngram_range=(1,2),
+            min_df=3,  
+            max_df=0.9, 
+            use_idf=True,
+            max_features = 3000,
+            smooth_idf=True, 
+            sublinear_tf=True)
+#用词袋模型构建数据            
+train_TFIDF = TFIDF.fit_transform(train['text_split'])
+X_train = train_TFIDF 
+y_train = train['label']
+#划分训练集和验证集
+x_train, x_valid, y_train, y_valid = train_test_split(X_train, y_train, test_size=0.2)
+clf = LogisticRegression(C=4, n_jobs=16)
+clf.fit(x_train, y_train)
+#对验证集进行预测
+y_pred = clf.predict(x_valid)
+acc=accuracy_score(y_valid,y_pred)
+f1=f1_score(y_valid,y_pred, average='macro')
+print("LR验证集ACC:"+str(acc)+"   "+"LR验证集F1-score:"+str(f1))
+classes=train['label'].unique()
+cm = confusion_matrix(y_pred,y_valid,labels=classes)
+df=pd.DataFrame(cm,index=classes,columns=classes)
+plt.figure(figsize=(20, 20))
+sns.heatmap(df,annot=True,cmap="Set3")
+plt.show()
